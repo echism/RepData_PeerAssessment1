@@ -1,25 +1,106 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Project 1 Reproducible Research"
+author: "Elizabeth Prout"
+date: "4/12/2018"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+# Preprocessing data
+
+This section shows the retrieval and processing of biodata from wearable devices.
+
+```{r biodata-read}
+#reading in the csv file with biodata from wearables
+zipfile<-tempfile()
+download.file('https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip',zipfile)
+biodata<-read.csv(unz(zipfile,"activity.csv"))
+#looking at the data
+str(biodata)
+#using unique to see all the date range we'll find
+unique(biodata$date)
+#using unique to see all the interval values we'll find
+unique(biodata$interval)
+#convert date to POSIX
+biodata$date<-as.POSIXct(biodata$date)
+```
+# What is the mean total number of steps taken per day?
+
+This shows a histogram, mean and median of steps each day.
+
+```{r dailies}
+#calculating daily steps
+daily.steps<-tapply(biodata$steps,biodata$date,sum)
+#making a histogram of daily steps
+hist(daily.steps,xlab='steps',ylab='days',main='Histogram of daily steps')
+#mean of daily steps (to nearest step)
+paste('The mean of daily steps is',round(mean(daily.steps,na.rm=TRUE)))
+#median of daily steps
+paste('The median of daily steps is',median(daily.steps,na.rm = TRUE))
+```
+
+# What is the average daily activity pattern?
+
+```{r daily-pattern}
+
+#averaging steps at specific intervals of the day, to the whole step
+avg.by.interval<-round(tapply(biodata$steps,biodata$interval,mean,na.rm=TRUE))
+#creating a time interval
+plot(y=avg.by.interval,x=(names(avg.by.interval)),xlab="Time interval",ylab="Steps",type='l',main='Step patterns throughout the day') 
+#takes maximum of interval averages, retrieves the interval number, puts it in a sentence
+paste('The maximum steps at a specific interval (averaged across all days) is',max(avg.by.interval),'at interval',names(avg.by.interval[avg.by.interval==max(avg.by.interval)]))
+```
+
+# Inputing missing values
+
+```{r NAs}
+#prints out the number of NAs
+paste('The number of NA values in our data is',sum(is.na(biodata)))
+#making a copy of data to preserve original
+biodata.fill<-biodata
+#extracting a list of the time intervals of the NA values and putting in a vector
+na.ints<-biodata[is.na(biodata),]$interval
+#preparing another vector of indices
+avg.ind<-(na.ints-c(rep(0,12),rep(45,12),rep(90,12),rep(135,12),rep(180,12),rep(225,12),rep(270,12),rep(315,12),rep(360,12),rep(405,12),rep(450,12),rep(495,12),rep(540,12),rep(585,12),rep(630,12),rep(675,12),rep(720,12),rep(765,12),rep(810,12),rep(855,12),rep(900,12),rep(945,12),rep(990,12),rep(1035,12)))/5+1
+#prepares vectors of average by intervals without names
+avs.ints.uname<-unname(unlist(avg.by.interval))
+#making a list of missing values based on averages at the time interval /5+1 is to get index
+missing.vals<-avs.ints.uname[avg.ind]
+#putting the missing values in the NA slots
+biodata.fill$steps[is.na(biodata.fill$steps)]<-missing.vals
+#calculating daily steps
+daily.steps2<-round(tapply(biodata.fill$steps,biodata.fill$date,sum))
+#making a histogram of modified daily steps
+hist(daily.steps2,xlab='steps',ylab='days',main='Histogram of modified daily steps')
+#mean of modified daily steps
+paste('The mean of daily steps is',round(mean(daily.steps2)))
+#median of modified daily steps
+paste('The median of daily steps is',median(daily.steps2))
+paste('Notice the differences between the first and second means; 1st:',round(mean(daily.steps,na.rm = TRUE)),'2nd:',round(mean(daily.steps2)))
+paste('And the medians; 1st:',median(daily.steps,na.rm = TRUE),'2nd:',median(daily.steps2))
+```
+
+# Are there differences in activity patterns between weekdays and weekends?
 
 
+```{r weekends}
+# Calculating the days of the week and placing in vector
+Day<-(weekdays(biodata.fill$date))
+# adding a column to a copy of the data frame
+full.days<-cbind(biodata.fill,Day)
+#reducing factors into weekend and weekday
+levels(full.days$Day)<-c("Weekday","Weekday","Weekend","Weekend","Weekday","Weekday","Weekday")
+#creating averages for just the weekdays
+avg.by.interval.weekday<-round(tapply(full.days$steps[levels(full.days$Day)=='Weekday'],full.days$interval[levels(full.days$Day)=='Weekday'],mean))
+#creating averages for just the weekends
+avg.by.interval.weekend<-round(tapply(full.days$steps[levels(full.days$Day)=='Weekend'],full.days$interval[levels(full.days$Day)=='Weekend'],mean))
+#creating a panel plot
+par(mfrow=c(2,1))
+plot(avg.by.interval.weekday,x=(names(avg.by.interval.weekday)),xlab="Time interval",ylab="Steps",type='l',main='Step patterns throughout the weekday')
+plot(avg.by.interval.weekend,x=(names(avg.by.interval.weekend)),xlab="Time interval",ylab="Steps",type='l',main='Step patterns throughout the weekend')
+paste('The difference between weekday and weekend is minimal, with the absolute largest difference on any one interval being',max(abs(avg.by.interval.weekend-avg.by.interval.weekday)),'steps and the total absolute difference being',sum(abs(avg.by.interval.weekend-avg.by.interval.weekday)))
+```
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
